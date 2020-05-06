@@ -732,17 +732,17 @@ void train_trees( SMatF* trn_X_Xf, SMatF* trn_X_Y, Param& param, string model_di
 	_int s, t;
 	if (param.num_tree % numMpiNodes > 0)
     {
-        numTrees = floor(param.num_tree / numMpiNodes);
+        numTrees = param.num_tree / numMpiNodes + 1;
         if (mpiNodeId == numMpiNodes - 1)
 		{
 			s = (numTrees * mpiNodeId);
-            numTrees = param.num_tree - (numTrees * (mpiNodeId));
-			t = s + numTrees - 1;
+            numTrees = param.num_tree - (numTrees * mpiNodeId);
+			t = numTrees;
 		}
         else
         {
             s = (numTrees * mpiNodeId);
-            t = (numTrees * (mpiNodeId+1))-1;
+            t = numTrees;
         }
     }
     else
@@ -939,25 +939,25 @@ SMatF* predict_trees( SMatF* tst_X_Xf, Param& param, string model_dir, _float& p
     _int s, t;
     if (param.num_tree % numMpiNodes > 0)
     {
-        numTrees = floor(param.num_tree / numMpiNodes);
+        numTrees = param.num_tree / numMpiNodes + 1;
         if (mpiNodeId == numMpiNodes - 1)
-        {
-            s = (numTrees * mpiNodeId);
-            numTrees = param.num_tree - numTrees * (mpiNodeId);
-            t = s + numTrees - 1;
-        }
+		{
+			s = (numTrees * mpiNodeId);
+            numTrees = param.num_tree - (numTrees * mpiNodeId);
+			t = numTrees;
+		}
         else
         {
             s = (numTrees * mpiNodeId);
-            t = (numTrees * (mpiNodeId+1))-1;
+            t = numTrees;
         }
     }
     else
-    {
+	{
         numTrees = param.num_tree / numMpiNodes;
-        s = numTrees*mpiNodeId;
-        t = numTrees;
-    }
+		s = numTrees*mpiNodeId;
+		t = numTrees;
+	}
     *p_time += timer.toc();
     predict_trees_thread( tst_X_Xf, ref(score_mat), param, s, t, model_dir, ref(p_time) , ref( m_size ));
     //Collecting results in score_mat
