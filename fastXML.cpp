@@ -732,17 +732,17 @@ void train_trees( SMatF* trn_X_Xf, SMatF* trn_X_Y, Param& param, string model_di
 	_int s, t;
 	if (param.num_tree % numMpiNodes > 0)
     {
-        numTrees = param.num_tree / numMpiNodes + 1;
+        numTrees = floor(param.num_tree / numMpiNodes);
         if (mpiNodeId == numMpiNodes - 1)
 		{
 			s = (numTrees * mpiNodeId);
-            numTrees = param.num_tree - numTrees * (mpiNodeId);
-			t = numTrees;
+            numTrees = param.num_tree - (numTrees * (mpiNodeId));
+			t = s + numTrees - 1;
 		}
         else
         {
             s = (numTrees * mpiNodeId);
-            t = (numTrees * (mpiNodeId+1));
+            t = (numTrees * (mpiNodeId+1))-1;
         }
     }
     else
@@ -937,19 +937,19 @@ SMatF* predict_trees( SMatF* tst_X_Xf, Param& param, string model_dir, _float& p
     printf( "Id of this node is: %d.\n", mpiNodeId );
 
     _int s, t;
-    if (param.num_tree % numMpiNodes > 0)   //We divide the number of trees between nodes
+    if (param.num_tree % numMpiNodes > 0)
     {
-        numTrees = param.num_tree / numMpiNodes + 1;
+        numTrees = floor(param.num_tree / numMpiNodes);
         if (mpiNodeId == numMpiNodes - 1)
         {
             s = (numTrees * mpiNodeId);
             numTrees = param.num_tree - numTrees * (mpiNodeId);
-            t = numTrees;
+            t = s + numTrees - 1;
         }
         else
         {
             s = (numTrees * mpiNodeId);
-            t = (numTrees * (mpiNodeId+1));
+            t = (numTrees * (mpiNodeId+1))-1;
         }
     }
     else
@@ -958,10 +958,9 @@ SMatF* predict_trees( SMatF* tst_X_Xf, Param& param, string model_dir, _float& p
         s = numTrees*mpiNodeId;
         t = numTrees;
     }
-    *t_time += timer.toc();
+    *p_time += timer.toc();
     predict_trees_thread( tst_X_Xf, ref(score_mat), param, s, t, model_dir, ref(p_time) , ref( m_size ));
     //Collecting results in score_mat
-    MPI_Finalize();
     //All Nodes will normalize their indiviual preds and then just adding finally
         for(_int i=0; i<score_mat->nc; i++)
             for(_int j=0; j<score_mat->size[i]; j++)
@@ -979,19 +978,27 @@ SMatF* predict_trees( SMatF* tst_X_Xf, Param& param, string model_dir, _float& p
     MPI_Comm communicator)      //Communicator Type
      *
      */
+    cout<<"Preparing to Gather"<<endl;
     //Declaring place to gather
+    SMatF* all_mat = NULL;
     if( mpiNodeId == 0 )
     {
-        SMatF* all_mat = (SMatF*)malloc(sizeof(*score_mat)*numMpiNodes);
+        all_mat = (SMatF*)malloc(sizeof(*score_mat)*numMpiNodes);
     }
+    char *buffer = static_cast<char*>(static_cast<void*>(score_mat));
     if( mpiNodeId == 0 )
     {
-        MPI_Gather(score_mat, 1, SMatF( param.num_Y, num_X ), all_mat, 1, SMatF( param.num_Y, num_X ), 0,MPI_COMM_WORLD);
+        MPI_Gather(buffer, sizeof(*score_mat), MPI_CHAR, all_mat, sizeof(*score_mat), MPI_CHAR, 0,MPI_COMM_WORLD);
     }
     else
     {
-        MPI_Gather(score_mat, 1, SMatF( param.num_Y, num_X ), all_mat, 1, SMatF( param.num_Y, num_X ), 0,MPI_COMM_WORLD);
+        MPI_Gather(buffer, sizeof(*score_mat), MPI_CHAR, all_mat, sizeof(*score_mat), MPI_CHAR, 0,MPI_COMM_WORLD);
     }
+    cout<<"Size of all_mat is"<<sizeof(all_mat)<<endl;
+    cout<<"Size of *all_mat is"<<sizeof(*all_mat)<<endl;
+    cout<<"Size of score_mat is"<<sizeof(score_mat)<<endl;
+    cout<<"Size of score_mat is"<<sizeof(*score_mat)<<endl;
+    MPI_Finalize();
     /*
 	_int tree_per_thread = (_int)ceil((_float)param.num_tree/param.num_thread);
 	vector<thread> threads;
