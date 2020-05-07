@@ -920,9 +920,6 @@ SMatF* predict_trees( SMatF* tst_X_Xf, Param& param, string model_dir, _float& p
 
     //CODE ADD//
 
-    MPI_Datatype sendsubarray;
-    MPI_Datatype recvsubarray;
-    MPI_Datatype resizedrecvsubarray;
     int mpiNodeId;
     int numMpiNodes;
     int mpiInitialized;
@@ -937,9 +934,6 @@ SMatF* predict_trees( SMatF* tst_X_Xf, Param& param, string model_dir, _float& p
 
     MPI_Comm_size( MPI_COMM_WORLD, &numMpiNodes );
     MPI_Comm_rank( MPI_COMM_WORLD, &mpiNodeId );
-
-    MPI_Type_create_subarray(1,sizes,subsizes,starts,MPI_ORDER_C,MPI_CHAR,&sendsubarray);
-    MPI_Type_commit(&sendsubarray);
 
     if (mpiNodeId == 0) // If it is root
         printf( "There are %d nodes doing prediction.\n", numMpiNodes );
@@ -989,39 +983,33 @@ SMatF* predict_trees( SMatF* tst_X_Xf, Param& param, string model_dir, _float& p
      */
     cout<<"Preparing to Gather"<<endl;
     //Declaring place to gather
-    char* all_mat = NULL;
-    if( mpiNodeId == 0 )
+
+    SMatF* temp_mat = NULL;
+
+    if(mpiNodeId == 0)
     {
-        all_mat = (char *)malloc(sizeof(*score_mat));
+        temp_mat = new SMatF( param.num_Y, num_X );
     }
-    char *buffer = static_cast<char*>(static_cast<void*>(score_mat));
-    SMatF* fall_mat = NULL;
-    if( mpiNodeId == 0 )
+
+    if(mpiNodeId == 0)
     {
-        MPI_Gather(buffer, sizeof(*score_mat) , MPI_CHAR, all_mat, sizeof(*score_mat), MPI_CHAR, 0,MPI_COMM_WORLD);
-        fall_mat = static_cast<SMatF*>(static_cast<void*>(all_mat));
+        for(int i=1 ; i<numMpiNodes ; i++ )
+        {
+            cout<<"Receiving from Node ID :- "<<i<<endl;
+            MPI_Recv(temp_mat, sizeof(*temp_mat)/8 , MPI_BYTE, i, 0, MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+            cout<<"Receive Done from Node ID :- "<<i<<endl;
+            score_mat->add(temp_mat);
+        }
     }
     else
     {
-        MPI_Gather(buffer, sizeof(*score_mat), MPI_CHAR, all_mat, sizeof(*score_mat), MPI_CHAR, 0,MPI_COMM_WORLD);
+        MPI_Send(score_mat, sizeof(*score_mat)/8, MPI_BYTE, 0, 0, MPI_COMM_WORLD);
     }
 
     MPI_Finalize();
 
-    if( mpiNodeId == 0 )
-    {
-        //cout<<"size of fall_mat is : "<<sizeof(*fall_mat)<<endl;
-        //cout<<"size of score mat is : "<<sizeof(fall_mat[1])<<endl;
-        for(int x = 1 ; x < numMpiNodes-1 ; x++)
-        {
-            cout<<"X is "<<x<<endl;
-            string test = "temp"+x;
-            fall_mat[x].write(test);
-            //score_mat->add(fall_mat+x);
-        }
-        cout<<"Root *fall_mat contains "<<sizeof(*fall_mat)<<endl;
-        cout<<"Root fall_mat contains "<<sizeof(fall_mat)<<endl;
-    }
+    cout<<"----------ALL DATA GATHERED AT ROOT----------"<<endl;
+
     /*
 	_int tree_per_thread = (_int)ceil((_float)param.num_tree/param.num_thread);
 	vector<thread> threads;
@@ -1057,4 +1045,3 @@ SMatF* predict_trees( SMatF* tst_X_Xf, Param& param, string model_dir, _float& p
 
 	return score_mat;
 }
-
