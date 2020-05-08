@@ -153,6 +153,59 @@ public:
 		return fin;
 	}
 
+	friend istringstream& operator>>( istringstream& fin, SMat<T>& mat )
+	{
+		vector<_int> inds;
+		vector<T> vals;
+
+		fin >> mat.nc >> mat.nr;
+
+		mat.size = new _int[ mat.nc ];
+		mat.data = new pair<_int,T>*[ mat.nc ];
+
+		fin.ignore();
+		for(_int i=0; i<mat.nc; i++)
+		{
+			inds.clear();
+			vals.clear();
+			string line;
+			getline(fin,line);
+			line += "\n";
+			_int pos = 0;
+			_int next_pos;
+
+			while(next_pos=line.find_first_of(": \n",pos))
+			{
+				if((size_t)next_pos==string::npos)
+					break;
+				inds.push_back(stoi(line.substr(pos,next_pos-pos)));
+				pos = next_pos+1;
+
+				next_pos = line.find_first_of(": \n",pos);
+				if((size_t)next_pos==string::npos)
+					break;
+
+				vals.push_back(stof(line.substr(pos,next_pos-pos)));
+				pos = next_pos+1;
+
+			}
+
+			assert(inds.size()==vals.size());
+			assert(inds.size()==0 || inds[inds.size()-1]<mat.nr);
+
+			mat.size[i] = inds.size();
+			mat.data[i] = new pair<_int,T>[inds.size()];
+
+			for(_int j=0; j<mat.size[i]; j++)
+			{
+				mat.data[i][j].first = inds[j];
+				mat.data[i][j].second = (T)vals[j];
+			}
+		}
+
+		return fin;
+	}
+
 	SMat(string fname)
 	{
 		contiguous = false;
@@ -358,6 +411,30 @@ public:
 		return fout;
 	}
 
+	friend ostringstream& operator<<( ostringstream& fout, const SMat<T>& mat )
+	{
+		_int nc = mat.nc;
+		_int nr = mat.nr;
+		_int* size = mat.size;
+		pairIF** data = mat.data;
+
+		fout<<nc<<" "<<nr<<endl;
+
+		fout << fixed << setprecision( 6 );
+		for(_int i=0; i<nc; i++)
+		{
+			for(_int j=0; j<size[i]; j++)
+			{
+				if(j==0)
+					fout<<data[i][j].first<<":"<<data[i][j].second;
+				else
+					fout<<" "<<data[i][j].first<<":"<<data[i][j].second;
+			}
+			fout<<endl;
+		}
+
+		return fout;
+	}
 	void write(string fname)
 	{
 		check_valid_filename(fname,false);

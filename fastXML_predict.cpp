@@ -71,11 +71,13 @@ int main(int argc, char* argv[])
     _float prediction_time;
     _float model_size;
 	SMatF* score_mat = predict_trees( tst_X_Xf, param, model_folder, prediction_time, model_size );
+	if ( score_mat != NULL)
+		score_mat->write(score_file);
 
-	cout << "prediction time: " << ((prediction_time/tst_X_Xf->nc)*1000.0) << " ms/point" << endl;
-	cout << "model size: " << model_size/1e+9 << " GB" << endl;
+	//cout << "prediction time: " << ((prediction_time/tst_X_Xf->nc)*1000.0) << " ms/point" << endl;
+	//cout << "model size: " << model_size/1e+9 << " GB" << endl;
 
-	score_mat->write(score_file);
+	//score_mat->write(score_file);
 
 	delete tst_X_Xf;
 	delete score_mat;

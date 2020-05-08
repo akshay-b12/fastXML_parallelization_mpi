@@ -20,13 +20,23 @@
 //////---CODE ADDED---//////
 #include <omp.h>
 #include <mpi.h>
-//////---CODE ADDED---//////
+#include <sstream>
+/*
+
+//-----Code Added------//
+#include <boost/archive/binary_iarchive.hpp>
+#include <boost/archive/binary_oarchive.hpp>
+#include <boost/serialization/access.hpp>
+#include <sstream>
+//-----Code Added------//
+*/
 #include "config.h"
 #include "utils.h"
 #include "mat.h"
 #include "timer.h"
 
 using namespace std;
+//using namespace boost;
 
 extern LOGLVL loglvl;
 extern mutex mtx;

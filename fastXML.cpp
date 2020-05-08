@@ -943,7 +943,7 @@ SMatF* predict_trees( SMatF* tst_X_Xf, Param& param, string model_dir, _float& p
     _int s, t;
     if (param.num_tree % numMpiNodes > 0)
     {
-        numTrees = floor(param.num_tree / numMpiNodes);
+        numTrees = (param.num_tree / numMpiNodes)+1;
         if (mpiNodeId == numMpiNodes - 1)
         {
             s = (numTrees * mpiNodeId);
@@ -983,29 +983,48 @@ SMatF* predict_trees( SMatF* tst_X_Xf, Param& param, string model_dir, _float& p
      */
     cout<<"Preparing to Gather"<<endl;
     //Declaring place to gather
-
-    SMatF* temp_mat = NULL;
-
-    if(mpiNodeId == 0)
-    {
-        temp_mat = new SMatF( param.num_Y, num_X );
-    }
+	ostringstream oss;
 
     if(mpiNodeId == 0)
     {
         for(int i=1 ; i<numMpiNodes ; i++ )
         {
             cout<<"Receiving from Node ID :- "<<i<<endl;
-            MPI_Recv(temp_mat, sizeof(*temp_mat)/8 , MPI_BYTE, i, 0, MPI_COMM_WORLD,MPI_STATUS_IGNORE);
-            cout<<"Receive Done from Node ID :- "<<i<<endl;
+			int recv_size;
+			MPI_Recv(&recv_size, 1 , MPI_INT, i, 0, MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+			cout<<recv_size<<endl;
+			char* recv_buff = new char[recv_size];
+            MPI_Recv(recv_buff, recv_size , MPI_CHAR, i, 0, MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+			cout<<"Receive Done from Node ID :- "<<i<<endl;
+			string recv_str(recv_buff);
+			istringstream iss(recv_str);
+			SMatF *temp_mat = new SMatF( param.num_Y, num_X );
+			iss >> (*temp_mat);
             score_mat->add(temp_mat);
+			delete recv_buff;
         }
+		*p_time += timer.toc();
+		prediction_time = *p_time;
+		delete p_time;
+		cout << "prediction time: " << ((prediction_time/tst_X_Xf->nc)*1000.0) << " ms/point" << endl;
+		MPI_Finalize();
+		return score_mat;
     }
     else
     {
-        MPI_Send(score_mat, sizeof(*score_mat)/8, MPI_BYTE, 0, 0, MPI_COMM_WORLD);
+		oss << (*score_mat);
+		int send_size = oss.str().size();
+		//cout<<send_size<<endl;
+		//char* send_buff = new char[send_size];
+		//memcpy(send_buff, oss.str().c_str(), send_size);
+		MPI_Send(&send_size, 1, MPI_INT, 0, 0, MPI_COMM_WORLD);
+        MPI_Send(oss.str().c_str(), send_size, MPI_CHAR, 0, 0, MPI_COMM_WORLD);
+		cout<<"Send Done from Node ID :- "<<mpiNodeId<<endl;
+		//delete send_buff;
     }
-
+	*p_time += timer.toc();
+	prediction_time = *p_time;
+	delete p_time;
     MPI_Finalize();
 
     cout<<"----------ALL DATA GATHERED AT ROOT----------"<<endl;
@@ -1043,5 +1062,5 @@ SMatF* predict_trees( SMatF* tst_X_Xf, Param& param, string model_dir, _float& p
 	delete p_time;
 	*/
 
-	return score_mat;
+	return NULL;
 }
